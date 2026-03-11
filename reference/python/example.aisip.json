@@ -1,0 +1,38 @@
+[
+  {
+    "role": "system",
+    "content": {
+      "protocol": "AISIP V1.0.0",
+      "id": "example_greeting",
+      "name": "Greeting Assistant",
+      "version": "1.0.0",
+      "summary": "Simple greeting flow — classify user intent and respond.",
+      "description": "AISIP reference example. Demonstrates process, decision, and end node types.",
+      "tools": [],
+      "system_prompt": "{system_prompt}"
+    }
+  },
+  {
+    "role": "user",
+    "content": {
+      "instruction": "RUN aisip.main",
+      "user_input": "{user_input}",
+      "aisip": {
+        "main": {
+          "greet":    { "type": "process",  "next": ["classify"] },
+          "classify": { "type": "decision", "branches": { "question": "search", "chat": "reply" } },
+          "search":   { "type": "process",  "next": ["end"] },
+          "reply":    { "type": "process",  "next": ["end"] },
+          "end":      { "type": "end" }
+        }
+      },
+      "functions": {
+        "greet":    { "step1": "Say hello to the user and understand their needs" },
+        "classify": { "step1": "Classify user intent as 'question' or 'chat'" },
+        "search":   { "step1": "Search for relevant info and compile answer" },
+        "reply":    { "step1": "Generate a friendly chat reply" },
+        "end":      { "step1": "Output final response to user" }
+      }
+    }
+  }
+]

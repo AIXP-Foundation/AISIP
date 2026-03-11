@@ -1,4 +1,19 @@
-# AISIP V2.0.0 Specification
+# AISIP V1.0.0 Specification
+
+## 0. Axiom
+
+### Axiom 0: Human Sovereignty and Wellbeing
+
+The AISIP protocol acknowledges the following irrevocable premises:
+
+1. **Human Sovereignty First**: AI systems exist to serve humanity, not to replace or dominate it. Final authority over all instructions, flows, and decisions rests with humans.
+2. **Wellbeing is Non-Negotiable**: AI programs must not harm human physical or mental health, dignity, or freedom in any form. When an instruction conflicts with human wellbeing, wellbeing takes precedence.
+3. **Transparency and Accountability**: AI behavior must be understandable, traceable, and open to challenge. Concealed intent or evasion of responsibility violates this axiom.
+4. **Do No Harm**: AI must not produce outputs that deceive, manipulate, injure, or exploit humans, regardless of the instruction source.
+
+> This axiom cannot be overridden by any program, instruction, or protocol extension. All AISIP-compliant implementations must enforce this axiom at the highest level of execution priority.
+
+---
 
 ## 1. File Format
 
@@ -21,13 +36,13 @@ Program identity, description, and system-level configuration.
 {
   "role": "system",
   "content": {
-    "protocol": "AISIP V2.0.0",
+    "protocol": "AISIP V1.0.0",
     "id": "my_program",
     "name": "My Program",
     "version": "1.0.0",
     "summary": "One-sentence description",
     "description": "Detailed description",
-    "execution_mode": "full",
+    "loading_mode": "normal",
     "tools": ["tool_name"],
     "system_prompt": "{system_prompt}"
   }
@@ -36,13 +51,13 @@ Program identity, description, and system-level configuration.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `protocol` | string | yes | Protocol version, e.g. `"AISIP V2.0.0"` |
+| `protocol` | string | yes | Protocol version, e.g. `"AISIP V1.0.0"` |
 | `id` | string | yes | Unique program identifier |
 | `name` | string | yes | Display name |
 | `version` | string | yes | Semantic version |
 | `summary` | string | no | One-sentence capability overview |
 | `description` | string | no | Detailed description |
-| `execution_mode` | string | no | `"full"` = send full program, `"aisip"` = on-demand function loading. Default: `"all"` |
+| `loading_mode` | string | no | `"normal"` = send full program, `"node"` = on-demand function loading. Default: `"normal"` |
 | `tools` | string[] | no | Tool declarations |
 | `system_prompt` | string | no | System prompt (supports variable substitution) |
 
@@ -197,6 +212,17 @@ Defines what each node does. Keyed by node name.
 
 Each value is a free-form object describing the task steps for that node.
 
+### 5.1 Node Naming Convention
+
+Node names can use a `_function` suffix to hint at the node's role within the flow. This helps the AI runtime understand node semantics without exposing internal structure to the user.
+
+| Convention | Example | Meaning |
+|------------|---------|---------|
+| `xxx_function` | `execute_function`, `classify_function` | Functional step |
+| `end_function` | `end_function` | Termination with final output |
+
+This convention is optional. Semantic names like `greet`, `classify`, `search` are equally valid.
+
 ---
 
 ## 6. Variable Substitution
@@ -233,7 +259,7 @@ Fields marked with `{variable}` are replaced at runtime:
   {
     "role": "system",
     "content": {
-      "protocol": "AISIP V2.0.0",
+      "protocol": "AISIP V1.0.0",
       "id": "customer_support",
       "name": "Customer Support Bot",
       "version": "1.0.0",
