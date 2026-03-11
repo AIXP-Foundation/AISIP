@@ -44,6 +44,7 @@ Program identity, description, and system-level configuration.
     "description": "Detailed description",
     "loading_mode": "normal",
     "tools": ["tool_name"],
+    "params": { "language": "en", "tone": "formal" },
     "system_prompt": "{system_prompt}"
   }
 }
@@ -59,6 +60,7 @@ Program identity, description, and system-level configuration.
 | `description` | string | no | Detailed description |
 | `loading_mode` | string | no | `"normal"` = send full program, `"node"` = on-demand function loading. Default: `"normal"` |
 | `tools` | string[] | no | Tool declarations |
+| `params` | object | no | Global default parameters, referenceable in `functions` via `{params.key}` |
 | `system_prompt` | string | no | System prompt (supports variable substitution) |
 
 ---

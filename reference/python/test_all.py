@@ -1,5 +1,5 @@
 """
-AISIP V2 — Test suite for flow_runtime utilities.
+AISIP V1 — Test suite for flow_runtime utilities.
 
 Offline, no AI needed.
 
@@ -37,6 +37,7 @@ SIMPLE_FLOW = [
             "version": "1.0.0",
             "summary": "A simple test flow",
             "tools": [],
+            "params": { "language": "en", "tone": "friendly" },
             "system_prompt": "{system_prompt}"
         }
     },
@@ -240,6 +241,7 @@ def test_get_metadata():
     assert meta["id"] == "test_simple"
     assert meta["name"] == "Simple Test"
     assert meta["version"] == "1.0.0"
+    assert meta.get("params") == {"language": "en", "tone": "friendly"}
     print("  [PASS] get_metadata: correct extraction")
 
 
@@ -366,13 +368,27 @@ def test_load_example():
         print("  [SKIP] load: example.aisip.json not found")
 
 
-# ── Runner ──────────────────────────────────────────────────
+def test_params():
+    """params field in system.content is optional and preserved."""
+    meta = get_metadata(SIMPLE_FLOW)
+    assert "params" in meta
+    assert meta["params"]["language"] == "en"
+    assert meta["params"]["tone"] == "friendly"
+
+    # Flow without params should also be valid
+    validate(MULTI_TASK_FLOW)  # no params field
+    meta2 = get_metadata(MULTI_TASK_FLOW)
+    assert meta2.get("params") is None
+    print("  [PASS] params: optional field correctly handled")
+
+
 
 if __name__ == "__main__":
-    print("AISIP V2 — Testing all utilities:\n")
+    print("AISIP V1 — Testing all utilities:\n")
     test_validate_valid()
     test_validate_invalid()
     test_get_metadata()
+    test_params()
     test_get_tasks()
     test_get_functions()
     test_list_nodes()

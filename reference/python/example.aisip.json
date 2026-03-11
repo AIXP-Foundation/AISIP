@@ -9,6 +9,7 @@
       "summary": "Simple greeting flow — classify user intent and respond.",
       "description": "AISIP reference example. Demonstrates process, decision, and end node types.",
       "tools": [],
+      "params": { "language": "en", "tone": "friendly" },
       "system_prompt": "{system_prompt}"
     }
   },
