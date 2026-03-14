@@ -1,5 +1,5 @@
 """
-AISIP V1 — Test suite for flow_runtime utilities.
+AISIP V1.0.0 — Test suite for flow_runtime utilities.
 
 Offline, no AI needed.
 
@@ -13,7 +13,7 @@ Covers:
   5. Prompt building
   6. Validation error detection
   7. Multiple tasks (main + sub-tasks)
-  8. All node types
+  8. All node types (inferred from structure)
 """
 
 import json
@@ -21,7 +21,7 @@ import os
 import tempfile
 from flow_runtime import (
     load, validate, get_metadata, get_tasks, get_functions,
-    list_nodes, render_flow, build_prompt,
+    list_nodes, render_flow, build_prompt, infer_node_type,
 )
 
 
@@ -48,11 +48,11 @@ SIMPLE_FLOW = [
             "user_input": "{user_input}",
             "aisip": {
                 "main": {
-                    "greet":    {"type": "process",  "next": ["classify"]},
-                    "classify": {"type": "decision", "branches": {"question": "search", "chat": "reply"}},
-                    "search":   {"type": "process",  "next": ["end"]},
-                    "reply":    {"type": "process",  "next": ["end"]},
-                    "end":      {"type": "end"}
+                    "greet":    {"next": ["classify"]},
+                    "classify": {"branches": {"question": "search", "chat": "reply"}},
+                    "search":   {"next": ["end"]},
+                    "reply":    {"next": ["end"]},
+                    "end":      {}
                 }
             },
             "functions": {
@@ -84,23 +84,23 @@ MULTI_TASK_FLOW = [
             "user_input": "{user_input}",
             "aisip": {
                 "main": {
-                    "start":    {"type": "process",  "next": ["delegate_step"]},
-                    "delegate_step": {"type": "delegate", "delegate_to": "validation", "next": ["finish"]},
-                    "finish":   {"type": "process",  "next": ["end"]},
-                    "end":      {"type": "end"}
+                    "start":         {"next": ["delegate_step"]},
+                    "delegate_step": {"delegate_to": "validation", "next": ["finish"]},
+                    "finish":        {"next": ["end"]},
+                    "end":           {}
                 },
                 "validation": {
-                    "check":  {"type": "process", "next": ["verify"]},
-                    "verify": {"type": "process", "next": ["done"]},
-                    "done":   {"type": "end"}
+                    "check":  {"next": ["verify"]},
+                    "verify": {"next": ["done"]},
+                    "done":   {}
                 }
             },
             "functions": {
-                "start":    {"step1": "Begin"},
+                "start":         {"step1": "Begin"},
                 "delegate_step": {"step1": "Call validation"},
-                "finish":   {"step1": "Wrap up"},
-                "check":    {"step1": "Check input"},
-                "verify":   {"step1": "Verify result"}
+                "finish":        {"step1": "Wrap up"},
+                "check":         {"step1": "Check input"},
+                "verify":        {"step1": "Verify result"}
             }
         }
     }
@@ -124,12 +124,12 @@ PARALLEL_FLOW = [
             "user_input": "{user_input}",
             "aisip": {
                 "main": {
-                    "prepare": {"type": "process", "next": ["step_a", "step_b"]},
-                    "step_a":  {"type": "process", "next": ["sync"]},
-                    "step_b":  {"type": "process", "next": ["sync"]},
-                    "sync":    {"type": "join", "wait_for": ["step_a", "step_b"], "next": ["finish"]},
-                    "finish":  {"type": "process", "next": ["end"]},
-                    "end":     {"type": "end"}
+                    "prepare": {"next": ["step_a", "step_b"]},
+                    "step_a":  {"next": ["sync"]},
+                    "step_b":  {"next": ["sync"]},
+                    "sync":    {"wait_for": ["step_a", "step_b"], "next": ["finish"]},
+                    "finish":  {"next": ["end"]},
+                    "end":     {}
                 }
             },
             "functions": {
@@ -160,10 +160,10 @@ ERROR_FLOW = [
             "user_input": "{user_input}",
             "aisip": {
                 "main": {
-                    "risky":         {"type": "process", "next": ["finish"], "error": "error_handler"},
-                    "error_handler": {"type": "process", "next": ["finish"]},
-                    "finish":        {"type": "process", "next": ["end"]},
-                    "end":           {"type": "end"}
+                    "risky":         {"next": ["finish"], "error": "error_handler"},
+                    "error_handler": {"next": ["finish"]},
+                    "finish":        {"next": ["end"]},
+                    "end":           {}
                 }
             },
             "functions": {
@@ -177,6 +177,17 @@ ERROR_FLOW = [
 
 
 # ── Tests ───────────────────────────────────────────────────
+
+def test_infer_node_type():
+    """Infer node type from structure."""
+    assert infer_node_type({}) == "end"
+    assert infer_node_type({"branches": {"a": "b"}}) == "decision"
+    assert infer_node_type({"delegate_to": "sub", "next": ["x"]}) == "delegate"
+    assert infer_node_type({"wait_for": ["a"], "next": ["b"]}) == "join"
+    assert infer_node_type({"next": ["a", "b"]}) == "fork"
+    assert infer_node_type({"next": ["a"]}) == "process"
+    print("  [PASS] infer_node_type: all patterns correct")
+
 
 def test_validate_valid():
     """Valid AISIP data should pass validation."""
@@ -268,7 +279,7 @@ def test_get_functions():
 
 
 def test_list_nodes():
-    """List nodes with type and connections."""
+    """List nodes with inferred type and connections."""
     nodes = list_nodes(SIMPLE_FLOW)
     names = [n["name"] for n in nodes]
     assert "greet" in names
@@ -277,6 +288,7 @@ def test_list_nodes():
 
     # Check decision node has branches
     classify = [n for n in nodes if n["name"] == "classify"][0]
+    assert classify["type"] == "decision"
     assert "branches" in classify
     assert classify["branches"]["question"] == "search"
     print("  [PASS] list_nodes: correct node listing")
@@ -296,6 +308,7 @@ def test_parallel_nodes():
     """Parallel fork and join nodes listed correctly."""
     nodes = list_nodes(PARALLEL_FLOW)
     prepare = [n for n in nodes if n["name"] == "prepare"][0]
+    assert prepare["type"] == "fork"
     assert prepare["next"] == ["step_a", "step_b"]
 
     sync = [n for n in nodes if n["name"] == "sync"][0]
@@ -384,7 +397,8 @@ def test_params():
 
 
 if __name__ == "__main__":
-    print("AISIP V1 — Testing all utilities:\n")
+    print("AISIP V1.0.0 — Testing all utilities:\n")
+    test_infer_node_type()
     test_validate_valid()
     test_validate_invalid()
     test_get_metadata()

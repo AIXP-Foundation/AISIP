@@ -8,8 +8,8 @@ Zero-dependency Python utilities for loading, validating, and running AISIP flow
 |------|---------|
 | `flow_runtime.py` | Core library — loader, validator, flow analyzer, prompt builder |
 | `run.py` | CLI tool — inspect and run `.aisip.json` files |
-| `test_all.py` | Test suite — 14 tests covering all node types and flow patterns |
-| `example.aisip.json` | Example flow file — customer support bot |
+| `test_all.py` | Test suite — 16 tests covering all node types and flow patterns |
+| `example.aisip.json` | Example flow file — greeting assistant |
 
 ## Quick Start
 

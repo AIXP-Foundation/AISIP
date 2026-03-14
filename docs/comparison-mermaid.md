@@ -12,7 +12,7 @@
 | Loop | Yes | Yes | Equivalent |
 | Sub-flow (subgraph) | Yes | Yes | AISIP has delegate |
 | Convergence (merge) | Yes | Yes | Equivalent |
-| Error routing | No | Yes | **AISIP only** |
+| Error routing | Partial | Yes | Mermaid can draw `-.->`, AISIP has native `error` field |
 
 ---
 
@@ -29,10 +29,10 @@ graph TD
 **AISIP:**
 ```json
 {
-  "greet":    { "type": "process", "next": ["classify"] },
-  "classify": { "type": "process", "next": ["reply"] },
-  "reply":    { "type": "process", "next": ["end"] },
-  "end":      { "type": "end" }
+  "greet":    { "next": ["classify"] },
+  "classify": { "next": ["reply"] },
+  "reply":    { "next": ["end"] },
+  "end":      {}
 }
 ```
 
@@ -50,7 +50,7 @@ graph TD
 **AISIP:**
 ```json
 {
-  "check": { "type": "decision", "branches": { "yes": "approve", "no": "reject" } }
+  "check": { "branches": { "yes": "approve", "no": "reject" } }
 }
 ```
 
@@ -70,7 +70,6 @@ graph TD
 ```json
 {
   "route": {
-    "type": "decision",
     "branches": { "billing": "billing", "tech": "tech", "other": "general" }
   }
 }
@@ -90,7 +89,7 @@ graph TD
 **AISIP:**
 ```json
 {
-  "prepare": { "type": "process", "next": ["step_a", "step_b"] }
+  "prepare": { "next": ["step_a", "step_b"] }
 }
 ```
 
@@ -109,9 +108,9 @@ graph TD
 **AISIP:**
 ```json
 {
-  "step_a": { "type": "process", "next": ["sync"] },
-  "step_b": { "type": "process", "next": ["sync"] },
-  "sync":   { "type": "join", "wait_for": ["step_a", "step_b"], "next": ["finish"] }
+  "step_a": { "next": ["sync"] },
+  "step_b": { "next": ["sync"] },
+  "sync":   { "wait_for": ["step_a", "step_b"], "next": ["finish"] }
 }
 ```
 
@@ -132,8 +131,8 @@ graph TD
 **AISIP:**
 ```json
 {
-  "attempt": { "type": "process", "next": ["check"] },
-  "check":   { "type": "decision", "branches": { "retry": "attempt", "pass": "done" } }
+  "attempt": { "next": ["check"] },
+  "check":   { "branches": { "retry": "attempt", "pass": "done" } }
 }
 ```
 
@@ -156,21 +155,23 @@ graph TD
 Main task:
 ```json
 {
-  "prepare":  { "type": "process", "next": ["call_sub"] },
-  "call_sub": { "type": "delegate", "delegate_to": "validation", "next": ["continue_main"] }
+  "prepare":  { "next": ["call_sub"] },
+  "call_sub": { "delegate_to": "validation", "next": ["continue_main"] }
 }
 ```
 
 Sub-task (`validation`):
 ```json
 {
-  "check_input": { "type": "process", "next": ["verify"] },
-  "verify":      { "type": "process", "next": ["done"] },
-  "done":        { "type": "end" }
+  "check_input": { "next": ["verify"] },
+  "verify":      { "next": ["done"] },
+  "done":        {}
 }
 ```
 
 AISIP advantage: Sub-tasks are reusable — the same sub-task can be called from multiple delegate nodes. Mermaid subgraphs are visual grouping only.
+
+AISIP also supports step-level sub-task invocation via `RUN aisip.<sub>` in function steps, allowing sub-flows to be called from within function behavior (not visible in the flow graph).
 
 ---
 
@@ -190,11 +191,11 @@ graph TD
 **AISIP:**
 ```json
 {
-  "route":    { "type": "decision", "branches": { "a": "handle_a", "b": "handle_b", "c": "handle_c" } },
-  "handle_a": { "type": "process", "next": ["merge"] },
-  "handle_b": { "type": "process", "next": ["merge"] },
-  "handle_c": { "type": "process", "next": ["merge"] },
-  "merge":    { "type": "process", "next": ["end"] }
+  "route":    { "branches": { "a": "handle_a", "b": "handle_b", "c": "handle_c" } },
+  "handle_a": { "next": ["merge"] },
+  "handle_b": { "next": ["merge"] },
+  "handle_c": { "next": ["merge"] },
+  "merge":    { "next": ["end"] }
 }
 ```
 
@@ -202,24 +203,30 @@ graph TD
 
 ### 9. Error Routing
 
-**Mermaid:** No native support.
+**Mermaid:**
+```mermaid
+graph TD
+    risky_step[Risky Step] -.-> error_handler[Error Handler]
+    risky_step --> continue_step[Continue]
+    error_handler --> end_node((End))
+```
+
+Mermaid can draw error edges using dotted arrows (`-.->`), but has no semantic distinction between normal and error edges.
 
 **AISIP:**
 ```json
 {
   "risky_step": {
-    "type": "process",
     "next": ["continue"],
     "error": "error_handler"
   },
   "error_handler": {
-    "type": "process",
     "next": ["end"]
   }
 }
 ```
 
-AISIP only — equivalent to try/catch in programming languages.
+AISIP advantage: The `error` field is a first-class topology concept — the runtime knows this is an error edge, not just a visual connection. Combined with function-level `on_error` (type-based routing), AISIP provides full error handling semantics equivalent to try/catch in programming languages.
 
 ---
 
@@ -229,10 +236,13 @@ AISIP only — equivalent to try/catch in programming languages.
 |-----------|---------|-------|
 | Purpose | Flow visualization | Structured program definition |
 | Machine-readable | Requires parser | Native JSON |
-| Error handling | No | Yes (native) |
+| Error handling | Visual only (`-.->`) | Semantic (`error` field + `on_error`) |
 | Parallel join semantics | No (visual only) | Yes (explicit `wait_for`) |
-| Sub-flow reuse | No (copy/paste) | Yes (delegate) |
+| Sub-flow reuse | No (copy/paste) | Yes (`delegate_to` + `RUN aisip.sub`) |
 | Visualization | Native rendering | Convertible to Mermaid |
 | Structure/content separation | No | Yes (flow graph + functions) |
+| Type-free nodes | N/A | Yes (behavior inferred from structure) |
 
-AISIP covers all Mermaid control flow capabilities (9/9) plus error routing. Mermaid's only advantage is native visualization — but AISIP JSON can be converted to Mermaid for display.
+**Design principle**: AISIP nodes define only topology — what Mermaid can draw. Runtime behavior (join strategy, retry, error type routing, etc.) belongs in functions as RESERVED_KEYS.
+
+AISIP covers all Mermaid control flow capabilities (9/9) and adds semantic error handling, explicit join semantics, and sub-task reuse. Mermaid's advantage is native visualization — but AISIP JSON can be converted to Mermaid for display.

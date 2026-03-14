@@ -7,7 +7,7 @@
       "name": "Greeting Assistant",
       "version": "1.0.0",
       "summary": "Simple greeting flow — classify user intent and respond.",
-      "description": "AISIP reference example. Demonstrates process, decision, and end node types.",
+      "description": "AISIP reference example. Demonstrates process, decision, and end nodes with type-free inference.",
       "tools": [],
       "params": { "language": "en", "tone": "friendly" },
       "system_prompt": "{system_prompt}"
@@ -20,11 +20,11 @@
       "user_input": "{user_input}",
       "aisip": {
         "main": {
-          "greet":    { "type": "process",  "next": ["classify"] },
-          "classify": { "type": "decision", "branches": { "question": "search", "chat": "reply" } },
-          "search":   { "type": "process",  "next": ["end"] },
-          "reply":    { "type": "process",  "next": ["end"] },
-          "end":      { "type": "end" }
+          "greet":    { "next": ["classify"] },
+          "classify": { "branches": { "question": "search", "chat": "reply" } },
+          "search":   { "next": ["end"] },
+          "reply":    { "next": ["end"] },
+          "end":      {}
         }
       },
       "functions": {

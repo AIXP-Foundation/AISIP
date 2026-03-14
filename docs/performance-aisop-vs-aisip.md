@@ -14,18 +14,18 @@ graph TD
     N4 --> N2
 ```
 
-**AISIP (JSON) — ~80 tokens:**
+**AISIP (JSON) — ~60 tokens:**
 
 ```json
 "main": {
-    "N1": {"type": "decision", "branches": {"matched": "N2", "uncertain": "N4"}},
-    "N2": {"type": "execute_function", "next": ["N3"]},
-    "N3": {"type": "end_function"},
-    "N4": {"type": "classify_function", "next": ["N2"]}
+    "N1": {"branches": {"matched": "N2", "uncertain": "N4"}},
+    "N2": {"next": ["N3"]},
+    "N3": {},
+    "N4": {"next": ["N2"]}
 }
 ```
 
-Mermaid uses roughly **half the tokens** for the same flow definition. Fewer tokens = faster input processing + lower cost.
+Mermaid uses roughly **half the tokens** for the same flow definition. Fewer tokens = faster input processing + lower cost. Note: AISIP's type-free format reduces token count compared to the older type-based format.
 
 ## LLM Comprehension
 
@@ -42,7 +42,7 @@ Mermaid uses roughly **half the tokens** for the same flow definition. Fewer tok
 
 - **Complex flows** (join, parallel, delegate, error routing) — JSON semantics are more precise; Mermaid cannot express wait/join behavior
 - **Programmatic processing** — JSON can be directly parsed and validated by code; Mermaid requires string parsing
-- **Sub-tasks** — AISIP's T1/T2 multi-task structure is clearer than Mermaid subgraphs
+- **Sub-tasks** — AISIP's multi-task structure with `delegate_to` and `RUN aisip.sub` is clearer than Mermaid subgraphs
 - **Strict validation** — JSON schema can enforce structure at the protocol level
 
 ## Conclusion
@@ -74,18 +74,18 @@ graph TD
     N4 --> N2
 ```
 
-**AISIP (JSON) — 约 80 tokens：**
+**AISIP (JSON) — 约 60 tokens：**
 
 ```json
 "main": {
-    "N1": {"type": "decision", "branches": {"matched": "N2", "uncertain": "N4"}},
-    "N2": {"type": "execute_function", "next": ["N3"]},
-    "N3": {"type": "end_function"},
-    "N4": {"type": "classify_function", "next": ["N2"]}
+    "N1": {"branches": {"matched": "N2", "uncertain": "N4"}},
+    "N2": {"next": ["N3"]},
+    "N3": {},
+    "N4": {"next": ["N2"]}
 }
 ```
 
-Mermaid 的 token 数量大约是 JSON 的 **一半**。Token 越少 = 输入处理越快 + 费用越低。
+Mermaid 的 token 数量大约是 JSON 的 **一半**。Token 越少 = 输入处理越快 + 费用越低。注意：AISIP 的无 type 格式比旧的 type 格式减少了 token 数量。
 
 ## LLM 理解度
 
@@ -102,7 +102,7 @@ Mermaid 的 token 数量大约是 JSON 的 **一半**。Token 越少 = 输入处
 
 - **复杂流程**（join、parallel、delegate、error routing）— JSON 语义更精确，Mermaid 无法表达等待/汇合行为
 - **程序化处理** — JSON 可以直接被代码解析验证，Mermaid 需要字符串解析
-- **子任务** — AISIP 的 T1/T2 多任务结构比 Mermaid subgraph 更清晰
+- **子任务** — AISIP 的 `delegate_to` 和 `RUN aisip.sub` 多任务结构比 Mermaid subgraph 更清晰
 - **严格校验** — JSON schema 可以在协议层面强制执行结构约束
 
 ## 结论

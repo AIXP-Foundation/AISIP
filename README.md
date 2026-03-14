@@ -53,11 +53,11 @@ AISIP files are plain JSON — readable by any language, editable in any editor,
       "user_input": "{user_input}",
       "aisip": {
         "main": {
-          "greet":    { "type": "process",  "next": ["classify"] },
-          "classify": { "type": "decision", "branches": { "question": "search", "chat": "reply" } },
-          "search":   { "type": "process",  "next": ["end"] },
-          "reply":    { "type": "process",  "next": ["end"] },
-          "end":      { "type": "end" }
+          "greet":    { "next": ["classify"] },
+          "classify": { "branches": { "question": "search", "chat": "reply" } },
+          "search":   { "next": ["end"] },
+          "reply":    { "next": ["end"] },
+          "end":      {}
         }
       },
       "functions": {
@@ -79,37 +79,46 @@ greet -> classify --(question)--> search -> end
 
 ## Key Features
 
-- **9 Control Flow Types** — process, decision, join, delegate, end, error routing, parallel fork, loop, convergence
+- **13 Control Flow Patterns** — sequential, decision, parallel fork/join, delegate, loop, convergence, error routing, batch iterate, retry, data isolation, step-level sub-task
+- **Type-free Nodes** — no `type` field needed, behavior inferred from structure
 - **Three-Layer Separation** — metadata, flow graph, function definitions
-- **Sub-task Support** — `main` + named sub-tasks with delegate nodes
-- **Error Handling** — Any node can define an `error` route
+- **Topology / Behavior Split** — nodes define connections (what Mermaid can draw), functions define runtime behavior
+- **Sub-task Support** — `main` + named sub-tasks via `delegate_to` or step-level `RUN aisip.<sub>`
+- **Reserved Keys** — 7 runtime behavior keys in functions (join, map, on_error, retry_policy, context_filter, output_mapping, constraints)
+- **Error Handling** — node-level `error` edge + function-level `on_error` type routing
 - **Variable Substitution** — `{system_prompt}`, `{user_input}` replaced at runtime
 - **Zero Dependencies** — Reference implementation uses Python stdlib only
 - **AI-Agnostic** — Works with any AI runtime
 
-## Node Types
+## Node Structure
 
-| Type | Purpose | Syntax |
-|------|---------|--------|
-| `process` | Execute task, proceed to next | `"next": ["reply"]` |
-| `decision` | Conditional branching | `"branches": {"yes": "approve", "no": "reject"}` |
-| `join` | Wait for parallel branches | `"wait_for": ["step_a", "step_b"]` |
-| `delegate` | Call sub-task | `"delegate_to": "validation"` |
-| `end` | Terminate task | `{"type": "end"}` |
+Nodes define only topology (connections). Behavior is inferred from structure:
+
+| Structure | Inferred behavior | Syntax |
+|-----------|-------------------|--------|
+| Has `next` (1 target) | Process — execute then proceed | `"next": ["reply"]` |
+| Has `branches` | Decision — conditional branching | `"branches": {"yes": "a", "no": "b"}` |
+| Has `wait_for` | Join — wait for parallel branches | `"wait_for": ["a", "b"], "next": ["c"]` |
+| Has `delegate_to` | Delegate — call sub-task | `"delegate_to": "sub", "next": ["c"]` |
+| Empty `{}` | End — terminate task | `{}` |
 
 ## Control Flow Patterns
 
-| Pattern | How to Express |
-|---------|----------------|
-| Sequential | `"next": ["step_b"]` |
-| If/else | `"branches": {"yes": "approve", "no": "reject"}` |
-| Switch (N-way) | `"branches": {"billing": "billing", "tech": "tech", "other": "general"}` |
-| Parallel fork | `"next": ["step_a", "step_b"]` |
-| Parallel join | `"type": "join", "wait_for": ["step_a", "step_b"]` |
-| Loop | Branch target points to an earlier node |
-| Sub-task | `"type": "delegate", "delegate_to": "validation"` |
-| Convergence | Multiple nodes' `next` point to the same node |
-| Error routing | `"error": "error_handler"` |
+| Pattern | Flow Graph node (§4) | Functions (§5) |
+|---------|----------------------|----------------|
+| Sequential | `"next": ["step_b"]` | — |
+| If/else | `"branches": {"yes": "approve", "no": "reject"}` | — |
+| Switch (N-way) | `"branches": {"billing": "b", "tech": "t", ...}` | — |
+| Parallel fork | `"next": ["step_a", "step_b"]` | — |
+| Parallel join | `"wait_for": ["a", "b"], "next": ["end"]` | `"join": {"merge_strategy": "array"}` |
+| Loop | Branch target points to an earlier node | — |
+| Sub-task | `"delegate_to": "sub", "next": ["continue"]` | — |
+| Convergence | Multiple nodes' `next` point to same node | — |
+| Error routing | `"error": "handler"` | `"on_error": {"timeout": "t"}` |
+| Batch iterate | `"next": ["merge"]` | `"map": {"items_path": "..."}` |
+| Retry | — | `"retry_policy": {"max_attempts": 3}` |
+| Data isolation | — | `"context_filter": {"include": [...]}` |
+| Step-level sub | — | step text: `RUN aisip.sub` |
 
 ## Getting Started
 

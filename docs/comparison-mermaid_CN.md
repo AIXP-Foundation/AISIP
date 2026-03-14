@@ -12,7 +12,7 @@
 | 回环 | 支持 | 支持 | 等价 |
 | 子流程 | 支持 | 支持 | AISIP 有 delegate |
 | 收敛 | 支持 | 支持 | 等价 |
-| 错误路由 | 不支持 | 支持 | **AISIP 独有** |
+| 错误路由 | 部分支持 | 支持 | Mermaid 可画 `-.->`, AISIP 有原生 `error` 字段 |
 
 ---
 
@@ -29,10 +29,10 @@ graph TD
 **AISIP：**
 ```json
 {
-  "greet":    { "type": "process", "next": ["classify"] },
-  "classify": { "type": "process", "next": ["reply"] },
-  "reply":    { "type": "process", "next": ["end"] },
-  "end":      { "type": "end" }
+  "greet":    { "next": ["classify"] },
+  "classify": { "next": ["reply"] },
+  "reply":    { "next": ["end"] },
+  "end":      {}
 }
 ```
 
@@ -50,7 +50,7 @@ graph TD
 **AISIP：**
 ```json
 {
-  "check": { "type": "decision", "branches": { "yes": "approve", "no": "reject" } }
+  "check": { "branches": { "yes": "approve", "no": "reject" } }
 }
 ```
 
@@ -70,7 +70,6 @@ graph TD
 ```json
 {
   "route": {
-    "type": "decision",
     "branches": { "billing": "billing", "tech": "tech", "other": "general" }
   }
 }
@@ -90,7 +89,7 @@ graph TD
 **AISIP：**
 ```json
 {
-  "prepare": { "type": "process", "next": ["step_a", "step_b"] }
+  "prepare": { "next": ["step_a", "step_b"] }
 }
 ```
 
@@ -109,9 +108,9 @@ graph TD
 **AISIP：**
 ```json
 {
-  "step_a": { "type": "process", "next": ["sync"] },
-  "step_b": { "type": "process", "next": ["sync"] },
-  "sync":   { "type": "join", "wait_for": ["step_a", "step_b"], "next": ["finish"] }
+  "step_a": { "next": ["sync"] },
+  "step_b": { "next": ["sync"] },
+  "sync":   { "wait_for": ["step_a", "step_b"], "next": ["finish"] }
 }
 ```
 
@@ -132,8 +131,8 @@ graph TD
 **AISIP：**
 ```json
 {
-  "attempt": { "type": "process", "next": ["check"] },
-  "check":   { "type": "decision", "branches": { "retry": "attempt", "pass": "done" } }
+  "attempt": { "next": ["check"] },
+  "check":   { "branches": { "retry": "attempt", "pass": "done" } }
 }
 ```
 
@@ -156,21 +155,23 @@ graph TD
 主任务：
 ```json
 {
-  "prepare":  { "type": "process", "next": ["call_sub"] },
-  "call_sub": { "type": "delegate", "delegate_to": "validation", "next": ["continue_main"] }
+  "prepare":  { "next": ["call_sub"] },
+  "call_sub": { "delegate_to": "validation", "next": ["continue_main"] }
 }
 ```
 
 子任务（`validation`）：
 ```json
 {
-  "check_input": { "type": "process", "next": ["verify"] },
-  "verify":      { "type": "process", "next": ["done"] },
-  "done":        { "type": "end" }
+  "check_input": { "next": ["verify"] },
+  "verify":      { "next": ["done"] },
+  "done":        {}
 }
 ```
 
 AISIP 优势：子任务可复用 — 同一子任务可以被多个 delegate 节点调用。Mermaid 的 subgraph 仅是视觉分组。
+
+AISIP 还支持步骤层子任务调用，通过函数步骤中的 `RUN aisip.<sub>` 实现，允许在函数行为内调用子流程（不在流程图中显示）。
 
 ---
 
@@ -190,11 +191,11 @@ graph TD
 **AISIP：**
 ```json
 {
-  "route":    { "type": "decision", "branches": { "a": "handle_a", "b": "handle_b", "c": "handle_c" } },
-  "handle_a": { "type": "process", "next": ["merge"] },
-  "handle_b": { "type": "process", "next": ["merge"] },
-  "handle_c": { "type": "process", "next": ["merge"] },
-  "merge":    { "type": "process", "next": ["end"] }
+  "route":    { "branches": { "a": "handle_a", "b": "handle_b", "c": "handle_c" } },
+  "handle_a": { "next": ["merge"] },
+  "handle_b": { "next": ["merge"] },
+  "handle_c": { "next": ["merge"] },
+  "merge":    { "next": ["end"] }
 }
 ```
 
@@ -202,24 +203,30 @@ graph TD
 
 ### 9. 错误路由
 
-**Mermaid：** 无原生支持。
+**Mermaid：**
+```mermaid
+graph TD
+    risky_step[Risky Step] -.-> error_handler[Error Handler]
+    risky_step --> continue_step[Continue]
+    error_handler --> end_node((End))
+```
+
+Mermaid 可以使用虚线箭头（`-.->`）画出错误边，但没有正常边和错误边的语义区别。
 
 **AISIP：**
 ```json
 {
   "risky_step": {
-    "type": "process",
     "next": ["continue"],
     "error": "error_handler"
   },
   "error_handler": {
-    "type": "process",
     "next": ["end"]
   }
 }
 ```
 
-AISIP 独有 — 等同于编程语言中的 try/catch。
+AISIP 优势：`error` 字段是一等拓扑概念 — 运行时知道这是错误边，不仅仅是视觉连接。配合函数层的 `on_error`（类型路由），AISIP 提供了等同于编程语言 try/catch 的完整错误处理语义。
 
 ---
 
@@ -229,10 +236,13 @@ AISIP 独有 — 等同于编程语言中的 try/catch。
 |------|---------|-------|
 | 用途 | 流程可视化 | 结构化程序定义 |
 | 机器可读 | 需要解析器 | 原生 JSON |
-| 错误处理 | 不支持 | 支持（原生） |
+| 错误处理 | 仅视觉（`-.->`） | 语义化（`error` 字段 + `on_error`） |
 | 并行汇合语义 | 不支持（仅视觉） | 支持（明确的 `wait_for`） |
-| 子流程复用 | 不支持（复制粘贴） | 支持（delegate） |
+| 子流程复用 | 不支持（复制粘贴） | 支持（`delegate_to` + `RUN aisip.sub`） |
 | 可视化 | 原生渲染 | 可转换为 Mermaid 显示 |
 | 结构/内容分离 | 不支持 | 支持（流程图 + 函数） |
+| 无 type 节点 | 不适用 | 支持（行为从结构推断） |
 
-AISIP 覆盖了 Mermaid 的所有控制流能力（9/9），并额外支持错误路由。Mermaid 的唯一优势是原生可视化 — 但 AISIP JSON 可以转换为 Mermaid 进行展示。
+**设计原则**：AISIP 节点只定义拓扑 — Mermaid 能画出来的。运行时行为（join 策略、重试、错误类型路由等）属于函数层的 RESERVED_KEYS。
+
+AISIP 覆盖了 Mermaid 的所有控制流能力（9/9），并增加了语义化错误处理、明确的汇合语义和子任务复用。Mermaid 的优势是原生可视化 — 但 AISIP JSON 可以转换为 Mermaid 进行展示。

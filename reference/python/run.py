@@ -1,5 +1,5 @@
 """
-AISIP V2 — Load and inspect .aisip.json files.
+AISIP V1.0.0 — Load and inspect .aisip.json files.
 
 Usage:
     python run.py                              # default: example.aisip.json

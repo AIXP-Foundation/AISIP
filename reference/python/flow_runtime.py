@@ -1,14 +1,47 @@
 """
-AISIP Runtime — AI Standard Instruction Protocol V2
+AISIP Runtime — AI Standard Instruction Protocol V1.0.0
 
 Loads .aisip.json files, validates structure, and provides utilities
 for working with AISIP flow definitions.
+
+Node behavior is inferred from structure (no type field required):
+  - has `branches`    → decision
+  - has `delegate_to` → delegate
+  - has `wait_for`    → join
+  - has `next`        → process (1 target) or fork (2+ targets)
+  - empty `{}`        → end
 
 Zero dependencies beyond Python stdlib.
 """
 
 import json
 from pathlib import Path
+
+
+# ── Inference ────────────────────────────────────────────────
+
+def infer_node_type(node: dict) -> str:
+    """Infer node behavior from its structure.
+
+    Priority order (highest to lowest):
+      1. {} (empty)        → end
+      2. has branches      → decision
+      3. has delegate_to   → delegate
+      4. has wait_for      → join
+      5. has next (2+)     → fork
+      6. has next (1)      → process
+    """
+    if not node:
+        return "end"
+    if "branches" in node:
+        return "decision"
+    if "delegate_to" in node:
+        return "delegate"
+    if "wait_for" in node:
+        return "join"
+    if "next" in node:
+        return "fork" if len(node["next"]) > 1 else "process"
+    return "end"
 
 
 # ── Load & Validate ─────────────────────────────────────────
@@ -22,7 +55,7 @@ def load(path: str) -> list:
 
 
 def validate(data: list) -> None:
-    """Validate AISIP V2 structure. Raises ValueError on invalid input."""
+    """Validate AISIP V1.0.0 structure. Raises ValueError on invalid input."""
     if not isinstance(data, list) or len(data) != 2:
         raise ValueError("AISIP file must be a JSON array with exactly 2 elements")
 
@@ -43,16 +76,17 @@ def validate(data: list) -> None:
     if "main" not in uc["aisip"]:
         raise ValueError("aisip must contain a 'main' task")
 
-    # Validate nodes
+    # Validate nodes — infer type from structure, no type field required
+    valid_types = ("process", "fork", "decision", "join", "delegate", "end")
     for task_name, task_body in uc["aisip"].items():
         if not isinstance(task_body, dict):
             continue
         for node_name, node in task_body.items():
             if not isinstance(node, dict):
                 continue
-            ntype = node.get("type")
-            if ntype not in ("process", "decision", "join", "delegate", "end"):
-                raise ValueError(f"Unknown node type '{ntype}' in {task_name}.{node_name}")
+            ntype = infer_node_type(node)
+            if ntype not in valid_types:
+                raise ValueError(f"Cannot infer valid node type for {task_name}.{node_name}")
 
 
 # ── Metadata ────────────────────────────────────────────────
@@ -75,14 +109,14 @@ def get_functions(data: list) -> dict:
 # ── Flow Analysis ───────────────────────────────────────────
 
 def list_nodes(data: list, task: str = "main") -> list[dict]:
-    """List all nodes in a task with their type and connections."""
+    """List all nodes in a task with their inferred type and connections."""
     tasks = get_tasks(data)
     task_body = tasks.get(task, {})
     nodes = []
     for name, node in task_body.items():
         if not isinstance(node, dict):
             continue
-        info = {"name": name, "type": node.get("type", "unknown")}
+        info = {"name": name, "type": infer_node_type(node)}
         if "next" in node:
             info["next"] = node["next"]
         if "branches" in node:
@@ -122,6 +156,9 @@ def render_flow(data: list, task: str = "main") -> str:
             target = node.get("delegate_to", "?")
             nxt = node.get("next", [])
             lines.append(f"  {name} => {target} -> {', '.join(nxt)}")
+        elif ntype == "fork":
+            nxt = node.get("next", [])
+            lines.append(f"  {name} -> [{', '.join(nxt)}]")
         else:
             nxt = node.get("next", [])
             lines.append(f"  {name} -> {', '.join(nxt)}")
